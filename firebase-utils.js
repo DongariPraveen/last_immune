@@ -292,13 +292,35 @@ const scheduleOperations = {
         return { success: false, error: 'User not authenticated' };
       }
       
-      const snapshot = await database.ref(`schedules/${childId}`).orderByChild('ageMonths').once('value');
+      const snapshot = await database.ref(`schedules/${childId}`).once('value');
       const scheduleItems = [];
       
       snapshot.forEach(itemSnapshot => {
         const item = itemSnapshot.val();
         if (item.userId === currentUser.id) {
           scheduleItems.push(item);
+        }
+      });
+      
+      // Sort by age months
+      scheduleItems.sort((a, b) => (a.ageMonths || 0) - (b.ageMonths || 0));
+      
+      // Update status based on current date
+      const today = new Date();
+      scheduleItems.forEach(item => {
+        if (!item.completed && item.dueDate) {
+          const dueDate = new Date(item.dueDate);
+          const daysDiff = Math.floor((today - dueDate) / (1000 * 60 * 60 * 24));
+          
+          if (daysDiff > 30) {
+            item.status = 'overdue';
+          } else if (daysDiff >= 0) {
+            item.status = 'due';
+          } else {
+            item.status = 'upcoming';
+          }
+        } else if (item.completed) {
+          item.status = 'completed';
         }
       });
       
